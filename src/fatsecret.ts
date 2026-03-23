@@ -202,7 +202,7 @@ export function dateToDayInt(dateStr?: string): number {
  */
 export function dayIntToDate(dayInt: number): string {
   const ms = dayInt * 24 * 60 * 60 * 1000;
-  return new Date(ms).toISOString().split("T")[0];
+  return new Date(ms).toISOString().split("T")[0] ?? "";
 }
 
 /**
@@ -292,6 +292,10 @@ export class FatSecretClient {
       );
     }
 
+    // Narrowed local copies so TypeScript knows they are strings below
+    const accessToken: string = this.accessToken;
+    const accessTokenSecret: string = this.accessTokenSecret;
+
     const nonce = crypto.randomBytes(16).toString("hex");
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
@@ -300,7 +304,7 @@ export class FatSecretClient {
       oauth_nonce: nonce,
       oauth_signature_method: "HMAC-SHA1",
       oauth_timestamp: timestamp,
-      oauth_token: this.accessToken,
+      oauth_token: accessToken,
       oauth_version: "1.0",
     };
 
@@ -326,7 +330,7 @@ export class FatSecretClient {
     ].join("&");
 
     // Signing key: consumer secret + "&" + token secret (both percent-encoded)
-    const signingKey = `${encodeURIComponent(this.clientSecret)}&${encodeURIComponent(this.accessTokenSecret)}`;
+    const signingKey = `${encodeURIComponent(this.clientSecret)}&${encodeURIComponent(accessTokenSecret)}`;
 
     const signature = crypto
       .createHmac("sha1", signingKey)

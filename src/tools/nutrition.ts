@@ -209,7 +209,7 @@ export async function handleGetMonthOfStatistics(
   const input = GetMonthOfStatisticsSchema.parse(args);
 
   const dayInt = dateToDayInt(input.date);
-  const displayDate = input.date || new Date().toISOString().split("T")[0];
+  const displayDate = input.date ?? new Date().toISOString().split("T")[0] ?? "";
   const monthLabel = displayDate.substring(0, 7); // YYYY-MM
 
   const data = await client.diaryPost<MonthResult>(
