@@ -301,15 +301,21 @@ export class FatSecretClient {
     );
   }
 
-  // ── Public request (2-legged OAuth 1.0 — no IP whitelist required) ────────
+  // ── Public request (2-legged OAuth 1.0 via server.api) ───────────────────
   //
-  // FatSecret's OAuth 2.0 requires IP whitelisting (up to 24h propagation).
-  // 2-legged OAuth 1.0 works immediately with just the consumer key/secret.
-  // Signing key = consumer_secret& (trailing & with empty token secret).
+  // The URL-based REST endpoints (/rest/foods/search/v5 etc.) only accept
+  // OAuth 2.0 Bearer tokens, which require IP whitelisting (up to 24h delay).
+  //
+  // The method-based server.api endpoint accepts 2-legged OAuth 1.0 signing
+  // using only the consumer key + secret — no IP whitelist, works immediately.
+  // Signing key = consumer_secret& (trailing & = empty user token secret).
 
-  async publicGet<T>(path: string, params: Record<string, string>): Promise<T> {
-    const queryParams: Record<string, string> = { ...params, format: "json" };
-    const baseUrl = `${API_BASE_URL}/${path}`;
+  async publicPost<T>(method: string, params: Record<string, string>): Promise<T> {
+    const bodyParams: Record<string, string> = {
+      ...params,
+      method,
+      format: "json",
+    };
 
     const nonce = crypto.randomBytes(16).toString("hex");
     const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -320,18 +326,18 @@ export class FatSecretClient {
       oauth_signature_method: "HMAC-SHA1",
       oauth_timestamp: timestamp,
       oauth_version: "1.0",
+      // No oauth_token — this is 2-legged (app-only)
     };
 
-    // All params (query + oauth) combined and sorted for signature
-    const allParams: Record<string, string> = { ...queryParams, ...oauthParams };
+    const allParams: Record<string, string> = { ...bodyParams, ...oauthParams };
     const paramString = Object.keys(allParams)
       .sort()
       .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(allParams[k])}`)
       .join("&");
 
     const signatureBase = [
-      "GET",
-      encodeURIComponent(baseUrl),
+      "POST",
+      encodeURIComponent(SERVER_API_URL),
       encodeURIComponent(paramString),
     ].join("&");
 
@@ -351,20 +357,21 @@ export class FatSecretClient {
         .map((k) => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
         .join(", ");
 
-    const qs = new URLSearchParams(queryParams);
-    const url = `${baseUrl}?${qs.toString()}`;
+    const body = new URLSearchParams(bodyParams);
 
-    const response = await fetch(url, {
-      method: "GET",
+    const response = await fetch(SERVER_API_URL, {
+      method: "POST",
       headers: {
         Authorization: authHeader,
+        "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
       },
+      body: body.toString(),
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`FatSecret API error (${response.status}): ${body}`);
+      const errBody = await response.text();
+      throw new Error(`FatSecret API error (${response.status}): ${errBody}`);
     }
 
     const data = (await response.json()) as T;

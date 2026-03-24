@@ -1,7 +1,7 @@
 /**
  * Food tools: search_foods, get_food, search_recipes
  *
- * These endpoints use OAuth 2.0 (client credentials) — no user login required.
+ * Uses 2-legged OAuth 1.0 via server.api — no IP whitelist required.
  */
 
 import { z } from "zod";
@@ -233,8 +233,8 @@ export async function handleSearchFoods(
     params.region = input.region;
   }
 
-  const data = await client.publicGet<FoodSearchResult>(
-    "foods/search/v5",
+  const data = await client.publicPost<FoodSearchResult>(
+    "foods.search.v5",
     params
   );
 
@@ -297,7 +297,7 @@ export async function handleGetFood(
     flag_default_serving: input.flag_default_serving ? "true" : "false",
   };
 
-  const data = await client.publicGet<FoodDetail>("food/v5", params);
+  const data = await client.publicPost<FoodDetail>("food.get.v5", params);
   const { food } = data;
 
   const lines: string[] = [
@@ -377,8 +377,8 @@ export async function handleSearchRecipes(
   if (input.sort_by) params.sort_by = input.sort_by;
   if (input.must_have_images) params.must_have_images = "true";
 
-  const data = await client.publicGet<RecipeSearchResult>(
-    "recipes/search/v2",
+  const data = await client.publicPost<RecipeSearchResult>(
+    "recipes.search.v2",
     params
   );
 
