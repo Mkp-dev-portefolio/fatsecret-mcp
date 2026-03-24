@@ -9,8 +9,11 @@
  * Authentication:
  *   - Public tools (search_foods, get_food, search_recipes):
  *       OAuth 2.0 client credentials — only FATSECRET_CLIENT_ID + FATSECRET_CLIENT_SECRET needed.
- *   - Diary tools (get_food_entries, add_food_entry, get_daily_nutrition, get_month_of_statistics):
+ *   - Diary tools (get_food_entries, add_food_entry, edit_food_entry, delete_food_entry,
+ *       get_weight_entries, update_weight_entry, delete_weight_entry,
+ *       get_daily_nutrition, get_month_of_statistics):
  *       OAuth 1.0 (3-legged) — also requires FATSECRET_ACCESS_TOKEN + FATSECRET_ACCESS_TOKEN_SECRET.
+ *       Note: write tools (add/edit/delete) also require Diary Read/Write API access from FatSecret.
  *
  * Usage:
  *   npx fatsecret-mcp
@@ -29,7 +32,16 @@ import { ZodError } from "zod";
 
 import { FatSecretClient } from "./fatsecret.js";
 import { FOOD_TOOLS, handleSearchFoods, handleGetFood, handleSearchRecipes } from "./tools/food.js";
-import { DIARY_TOOLS, handleGetFoodEntries, handleAddFoodEntry } from "./tools/diary.js";
+import {
+  DIARY_TOOLS,
+  handleGetFoodEntries,
+  handleAddFoodEntry,
+  handleEditFoodEntry,
+  handleDeleteFoodEntry,
+  handleGetWeightEntries,
+  handleUpdateWeightEntry,
+  handleDeleteWeightEntry,
+} from "./tools/diary.js";
 import { NUTRITION_TOOLS, handleGetDailyNutrition, handleGetMonthOfStatistics } from "./tools/nutrition.js";
 
 // ─── Server setup ─────────────────────────────────────────────────────────────
@@ -97,6 +109,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "add_food_entry":
         result = await handleAddFoodEntry(client, args);
+        break;
+
+      case "edit_food_entry":
+        result = await handleEditFoodEntry(client, args);
+        break;
+
+      case "delete_food_entry":
+        result = await handleDeleteFoodEntry(client, args);
+        break;
+
+      case "get_weight_entries":
+        result = await handleGetWeightEntries(client, args);
+        break;
+
+      case "update_weight_entry":
+        result = await handleUpdateWeightEntry(client, args);
+        break;
+
+      case "delete_weight_entry":
+        result = await handleDeleteWeightEntry(client, args);
         break;
 
       // ── Nutrition tools (OAuth 1.0) ─────────────────────────────────────────

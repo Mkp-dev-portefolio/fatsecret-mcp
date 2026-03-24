@@ -126,6 +126,40 @@ export interface FoodEntryAddResult {
   };
 }
 
+export interface FoodEntryEditResult {
+  food_entry: {
+    food_entry_id: string;
+    date_int: string;
+    meal: string;
+    food_id: string;
+    serving_id: string;
+    number_of_units: string;
+    food_entry_description: string;
+    calories: string;
+    carbohydrate: string;
+    protein: string;
+    fat: string;
+  };
+}
+
+export interface WeightEntry {
+  date_int: string;
+  weight_kg: string;
+  weight_lbs?: string;
+  bmi?: string;
+  comment?: string;
+}
+
+export interface WeightEntriesResult {
+  weight_entries?: {
+    weight_entry: WeightEntry | WeightEntry[];
+  };
+}
+
+export interface WeightUpdateResult {
+  weight_entry: WeightEntry;
+}
+
 export interface MonthResult {
   month: {
     from_date_int: string;

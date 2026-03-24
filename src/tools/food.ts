@@ -314,6 +314,7 @@ export async function handleGetFood(
     lines.push(
       `\n**${s.serving_description}**${isDefault ? " ⭐ (default)" : ""}`
     );
+    lines.push(`  serving_id: ${s.serving_id}`);
     if (s.metric_serving_amount && s.metric_serving_unit) {
       lines.push(`  Metric: ${s.metric_serving_amount}${s.metric_serving_unit}`);
     }
