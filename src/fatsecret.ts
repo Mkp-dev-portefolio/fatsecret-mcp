@@ -12,22 +12,10 @@ import * as crypto from "crypto";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const OAUTH2_TOKEN_URL = "https://oauth.fatsecret.com/connect/token";
 const API_BASE_URL = "https://platform.fatsecret.com/rest";
 const SERVER_API_URL = `${API_BASE_URL}/server.api`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface OAuth2Token {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  scope: string;
-}
-
-interface CachedToken extends OAuth2Token {
-  expiresAt: number;
-}
 
 export interface FatSecretError {
   code: number;
@@ -221,7 +209,6 @@ export class FatSecretClient {
   private readonly clientSecret: string;
   private readonly accessToken: string | undefined;
   private readonly accessTokenSecret: string | undefined;
-  private cachedToken: CachedToken | null = null;
 
   constructor() {
     const clientId = process.env.FATSECRET_CLIENT_ID;
@@ -239,45 +226,7 @@ export class FatSecretClient {
     this.accessTokenSecret = process.env.FATSECRET_ACCESS_TOKEN_SECRET;
   }
 
-  // ── OAuth 2.0 ──────────────────────────────────────────────────────────────
-
-  private async getAccessToken(): Promise<string> {
-    // Return cached token if still valid (with 60-second buffer)
-    if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
-      return this.cachedToken.access_token;
-    }
-
-    const credentials = Buffer.from(
-      `${this.clientId}:${this.clientSecret}`
-    ).toString("base64");
-
-    const response = await fetch(OAUTH2_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials&scope=basic",
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `OAuth 2.0 token request failed (${response.status}): ${body}`
-      );
-    }
-
-    const token = (await response.json()) as OAuth2Token;
-    this.cachedToken = {
-      ...token,
-      // Refresh 60 seconds before actual expiry
-      expiresAt: Date.now() + (token.expires_in - 60) * 1000,
-    };
-
-    return this.cachedToken.access_token;
-  }
-
-  // ── OAuth 1.0 HMAC-SHA1 ───────────────────────────────────────────────────
+  // ── OAuth 1.0 HMAC-SHA1 shared signing helper ────────────────────────────
 
   private buildOAuth1Header(
     method: string,
@@ -352,17 +301,63 @@ export class FatSecretClient {
     );
   }
 
-  // ── Public request (OAuth 2.0) ─────────────────────────────────────────────
+  // ── Public request (2-legged OAuth 1.0 — no IP whitelist required) ────────
+  //
+  // FatSecret's OAuth 2.0 requires IP whitelisting (up to 24h propagation).
+  // 2-legged OAuth 1.0 works immediately with just the consumer key/secret.
+  // Signing key = consumer_secret& (trailing & with empty token secret).
 
   async publicGet<T>(path: string, params: Record<string, string>): Promise<T> {
-    const token = await this.getAccessToken();
-    const qs = new URLSearchParams({ ...params, format: "json" });
-    const url = `${API_BASE_URL}/${path}?${qs.toString()}`;
+    const queryParams: Record<string, string> = { ...params, format: "json" };
+    const baseUrl = `${API_BASE_URL}/${path}`;
+
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+
+    const oauthParams: Record<string, string> = {
+      oauth_consumer_key: this.clientId,
+      oauth_nonce: nonce,
+      oauth_signature_method: "HMAC-SHA1",
+      oauth_timestamp: timestamp,
+      oauth_version: "1.0",
+    };
+
+    // All params (query + oauth) combined and sorted for signature
+    const allParams: Record<string, string> = { ...queryParams, ...oauthParams };
+    const paramString = Object.keys(allParams)
+      .sort()
+      .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(allParams[k])}`)
+      .join("&");
+
+    const signatureBase = [
+      "GET",
+      encodeURIComponent(baseUrl),
+      encodeURIComponent(paramString),
+    ].join("&");
+
+    // 2-legged signing key: consumer_secret& (no user token secret)
+    const signingKey = `${encodeURIComponent(this.clientSecret)}&`;
+    const signature = crypto
+      .createHmac("sha1", signingKey)
+      .update(signatureBase)
+      .digest("base64");
+
+    oauthParams["oauth_signature"] = signature;
+
+    const authHeader =
+      "OAuth " +
+      Object.keys(oauthParams)
+        .sort()
+        .map((k) => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
+        .join(", ");
+
+    const qs = new URLSearchParams(queryParams);
+    const url = `${baseUrl}?${qs.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: authHeader,
         Accept: "application/json",
       },
     });
