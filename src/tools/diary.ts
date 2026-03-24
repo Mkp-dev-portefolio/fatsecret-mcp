@@ -159,7 +159,7 @@ export async function handleGetFoodEntries(
   // Group entries by meal
   const mealGroups: Record<string, typeof entries> = {};
   for (const entry of entries) {
-    const meal = entry.meal || "other";
+    const meal = (entry.meal || "other").toLowerCase();
     if (!mealGroups[meal]) mealGroups[meal] = [];
     mealGroups[meal].push(entry);
   }

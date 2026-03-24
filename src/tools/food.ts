@@ -234,49 +234,37 @@ export async function handleSearchFoods(
   }
 
   const data = await client.publicPost<FoodSearchResult>(
-    "foods.search.v5",
+    "foods.search",
     params
   );
 
-  const { foods_search } = data;
-  const total = parseInt(foods_search.total_results, 10);
-  const page = parseInt(foods_search.page_number, 10);
-  const maxR = parseInt(foods_search.max_results, 10);
+  const { foods } = data;
+  const total = parseInt(foods.total_results ?? "0", 10);
+  const page = parseInt(foods.page_number ?? "0", 10);
+  const maxR = parseInt(foods.max_results ?? "0", 10);
 
-  if (total === 0 || !foods_search.results) {
+  if (total === 0 || !foods.food) {
     return `No foods found matching "${input.query}".`;
   }
 
-  const foods = toArray(foods_search.results.food);
+  const foodList = toArray(foods.food);
   const lines: string[] = [
     `**Food Search: "${input.query}"**`,
-    `Found ${total} results · Page ${page + 1} · Showing ${foods.length} of ${maxR} max`,
+    `Found ${total} results · Page ${page + 1} · Showing ${foodList.length}`,
     "",
   ];
 
-  for (const food of foods) {
+  for (const food of foodList) {
     lines.push(`**${food.food_name}**${food.brand_name ? ` (${food.brand_name})` : ""}`);
     lines.push(`  ID: ${food.food_id} · Type: ${food.food_type}`);
-    lines.push(`  URL: ${food.food_url}`);
-
-    if (food.servings) {
-      const servings = toArray(food.servings.serving);
-      const defaultServing =
-        servings.find((s) => s.is_default === "1") || servings[0];
-      if (defaultServing) {
-        lines.push(
-          `  Per ${defaultServing.serving_description}: ` +
-            `${defaultServing.calories ?? "?"}kcal · ` +
-            `Protein: ${defaultServing.protein ?? "?"}g · ` +
-            `Carbs: ${defaultServing.carbohydrate ?? "?"}g · ` +
-            `Fat: ${defaultServing.fat ?? "?"}g`
-        );
-      }
+    if (food.food_description) {
+      lines.push(`  ${food.food_description}`);
     }
+    lines.push(`  URL: ${food.food_url}`);
     lines.push("");
   }
 
-  const hasMore = (page + 1) * maxR < total;
+  const hasMore = maxR > 0 && (page + 1) * maxR < total;
   if (hasMore) {
     lines.push(
       `→ More results available. Use page_number: ${page + 1} for next page.`
@@ -297,7 +285,7 @@ export async function handleGetFood(
     flag_default_serving: input.flag_default_serving ? "true" : "false",
   };
 
-  const data = await client.publicPost<FoodDetail>("food.get.v5", params);
+  const data = await client.publicPost<FoodDetail>("food.get", params);
   const { food } = data;
 
   const lines: string[] = [
@@ -378,13 +366,13 @@ export async function handleSearchRecipes(
   if (input.must_have_images) params.must_have_images = "true";
 
   const data = await client.publicPost<RecipeSearchResult>(
-    "recipes.search.v2",
+    "recipes.search",
     params
   );
 
   const { recipes } = data;
-  const total = parseInt(recipes.total_results, 10);
-  const page = parseInt(recipes.page_number, 10);
+  const total = parseInt(recipes.total_results ?? "0", 10);
+  const page = parseInt(recipes.page_number ?? "0", 10);
 
   if (total === 0 || !recipes.recipe) {
     const queryStr = input.query ? `"${input.query}"` : "your criteria";

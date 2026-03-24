@@ -23,13 +23,11 @@ export interface FatSecretError {
 }
 
 export interface FoodSearchResult {
-  foods_search: {
+  foods: {
     max_results: string;
     total_results: string;
     page_number: string;
-    results?: {
-      food: FoodSummary | FoodSummary[];
-    };
+    food?: FoodSummary | FoodSummary[];
   };
 }
 
@@ -39,10 +37,8 @@ export interface FoodSummary {
   food_type: string;
   food_url: string;
   brand_name?: string;
-  food_sub_categories?: { food_sub_category: string[] };
-  servings?: {
-    serving: ServingSummary | ServingSummary[];
-  };
+  // Text summary, e.g. "Per 100g - Calories: 89kcal | Fat: 0.33g | Carbs: 22.84g | Protein: 1.09g"
+  food_description?: string;
 }
 
 export interface ServingSummary {
@@ -149,7 +145,7 @@ export interface DaySummary {
 export interface RecipeSearchResult {
   recipes: {
     max_results: string;
-    total_results: string;
+    total_results?: string;
     page_number: string;
     recipe?: RecipeSummary | RecipeSummary[];
   };
